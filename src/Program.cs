@@ -50,7 +50,8 @@ internal static class Program
             Application.SetCompatibleTextRenderingDefault(false);
 
             var monitor = new ClipboardMonitor();
-            var service = new ImageToPathService();
+            // [修改] 延迟回写期间持有定时器，using 保证消息泵退出后资源释放
+            using var service = new ImageToPathService();
             monitor.ClipboardUpdated += service.OnClipboardUpdated;
 
             using var context = new TrayApplicationContext(monitor, selftest);

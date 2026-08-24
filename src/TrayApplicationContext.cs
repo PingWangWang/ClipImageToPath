@@ -63,10 +63,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void CreateTrayIcon()
     {
         var menu = new ContextMenuStrip();
+        // [修改] 开机自启默认勾选：首次运行自动写入 Run 键并勾选菜单，用户可随时取消
         var autoStartItem = new ToolStripMenuItem("开机自启")
         {
             CheckOnClick = true, // 点击时自动切换勾选，处理器按新状态写注册表
-            Checked = IsAutoStartEnabled(),
+            Checked = EnableAutoStartByDefault(),
         };
         autoStartItem.Click += (_, _) => ToggleAutoStart(autoStartItem);
         var exitItem = new ToolStripMenuItem("退出");
@@ -118,6 +119,31 @@ internal sealed class TrayApplicationContext : ApplicationContext
         catch
         {
             // 读注册表失败按未启用处理，避免托盘菜单因异常无法显示
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 确保开机自启默认启用：已注册则直接返回勾选状态，未注册则写入 Run 键。
+    /// 返回:
+    ///     bool，开机自启是否已启用
+    /// </summary>
+    private static bool EnableAutoStartByDefault()
+    {
+        if (IsAutoStartEnabled())
+        {
+            return true;
+        }
+        try
+        {
+            using var key = Registry.CurrentUser.CreateSubKey(AutoStartRunKeyPath, writable: true);
+            key.SetValue(AutoStartValueName, AutoStartCommand, RegistryValueKind.String);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            // 默认启用失败时明确提示，避免用户以为已勾选但实际未生效
+            MessageBox.Show($"设置开机自启失败：{ex.Message}", "ClipImageToPath", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return false;
         }
     }

@@ -9,7 +9,7 @@
     <AssemblyName>ClipImageToPath</AssemblyName>
     <RootNamespace>ClipImageToPath</RootNamespace>
     <!-- 版本单一来源：修改 Version 即可同步 exe 文件名与文件属性中的版本号 -->
-    <Version>1.0.0</Version>
+    <Version>1.0.3</Version>
     <Product>ClipImageToPath</Product>
     <Description>剪贴板图片自动转为临时文件路径</Description>
     <Copyright>Copyright © 2026 ClipImageToPath</Copyright>
