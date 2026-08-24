@@ -1,0 +1,13 @@
+# 构建产物
+build/
+artifacts/
+src/bin/
+src/obj/
+
+# IDE 与用户文件
+.vs/
+*.user
+*.suo
+
+# 日志
+*.log

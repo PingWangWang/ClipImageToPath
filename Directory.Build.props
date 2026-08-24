@@ -1,0 +1,10 @@
+<Project>
+
+  <!-- 中间产物统一输出到项目根 build/，保持 src/ 目录干净；
+       必须在 Microsoft.Common.props 导入前设置，故放在根级 Directory.Build.props -->
+  <PropertyGroup>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)build\bin\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)build\obj\</BaseIntermediateOutputPath>
+  </PropertyGroup>
+
+</Project>

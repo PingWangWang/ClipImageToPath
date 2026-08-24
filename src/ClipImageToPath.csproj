@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>ClipImageToPath</AssemblyName>
+    <RootNamespace>ClipImageToPath</RootNamespace>
+    <!-- 版本单一来源：修改 Version 即可同步 exe 文件名与文件属性中的版本号 -->
+    <Version>1.0.0</Version>
+    <Product>ClipImageToPath</Product>
+    <Description>剪贴板图片自动转为临时文件路径</Description>
+    <Copyright>Copyright © 2026 ClipImageToPath</Copyright>
+    <SatelliteResourceLanguages>zh-Hans;en</SatelliteResourceLanguages>
+    <!-- exe 文件图标 -->
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <!-- 图标同时嵌入程序集，运行时供托盘加载 -->
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\app.ico" />
+  </ItemGroup>
+
+</Project>
