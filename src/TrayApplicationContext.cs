@@ -19,6 +19,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private const int SelfTestMaxAttempts = 50;       // 5 秒超时，超出视为自检失败
     private const string AutoStartRunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string AutoStartValueName = "ClipImageToPath";
+    private const string SettingsKeyPath = @"Software\ClipImageToPath";
+    private const string ShowBalloonValueName = "ShowBalloonTip";
 
     private readonly ClipboardMonitor _monitor;
     private readonly bool _selftest;
@@ -26,6 +28,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private System.Windows.Forms.Timer? _selfTestTimer;
     private bool _selfTestStarted;
     private bool _cleaned;
+    private string? _balloonPath; // 最近一次转换的路径，气泡点击跳转时使用
 
     /// <summary>自检结果码，供 Main 返回给调用方。</summary>
     public int ExitCode { get; private set; }
@@ -70,9 +73,17 @@ internal sealed class TrayApplicationContext : ApplicationContext
             Checked = EnableAutoStartByDefault(),
         };
         autoStartItem.Click += (_, _) => ToggleAutoStart(autoStartItem);
+        // [修改] 新增消息提示开关：控制图片转换成功后的气泡提示
+        var balloonItem = new ToolStripMenuItem("消息提示")
+        {
+            CheckOnClick = true, // 点击时自动切换勾选，处理器按新状态写注册表
+            Checked = IsBalloonEnabled(),
+        };
+        balloonItem.Click += (_, _) => ToggleBalloon(balloonItem);
         var exitItem = new ToolStripMenuItem("退出");
         exitItem.Click += (_, _) => ExitThread();
         menu.Items.Add(autoStartItem);
+        menu.Items.Add(balloonItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(exitItem);
 
@@ -83,6 +94,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ContextMenuStrip = menu,
             Visible = true,
         };
+        // [修改] 气泡点击时在资源管理器中定位临时文件
+        _trayIcon.BalloonTipClicked += (_, _) => OpenBalloonPath();
         _trayIcon.ShowBalloonTip(2000, "ClipImageToPath", "剪贴板中的图片将自动保存为临时文件并替换为路径", ToolTipIcon.Info);
     }
 
@@ -177,6 +190,85 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     /// <summary>开机自启注册表值：带引号的 exe 全路径，防止路径含空格时启动失败。</summary>
     private static string AutoStartCommand => $"\"{Environment.ProcessPath}\"";
+
+    /// <summary>
+    /// 读取消息提示开关状态，未配置时默认开启。
+    /// 返回:
+    ///     bool，是否启用消息提示
+    /// </summary>
+    private static bool IsBalloonEnabled()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(SettingsKeyPath);
+            object? raw = key?.GetValue(ShowBalloonValueName);
+            return raw is int value ? value != 0 : true;
+        }
+        catch
+        {
+            // 读注册表失败按默认开启处理，避免托盘菜单因异常无法显示
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// 切换消息提示开关并写入注册表。
+    /// 参数:
+    ///     item: 触发点击的菜单项，其 Checked 已由 CheckOnClick 切换
+    /// </summary>
+    private static void ToggleBalloon(ToolStripMenuItem item)
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.CreateSubKey(SettingsKeyPath, writable: true);
+            key.SetValue(ShowBalloonValueName, item.Checked ? 1 : 0, RegistryValueKind.DWord);
+        }
+        catch (Exception ex)
+        {
+            // 注册表写入失败时回滚勾选并明确提示，避免菜单状态与实际不一致
+            item.Checked = !item.Checked;
+            MessageBox.Show($"设置消息提示失败：{ex.Message}", "ClipImageToPath", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    /// <summary>
+    /// 图片转换成功后的气泡提示：开关开启且托盘存在时显示，并记录路径供点击跳转。
+    /// 参数:
+    ///     sender: 事件源（ImageToPathService）
+    ///     path: 转换后的临时 PNG 完整路径
+    /// </summary>
+    public void OnPathConverted(object? sender, string path)
+    {
+        if (!IsBalloonEnabled() || _trayIcon == null)
+        {
+            return;
+        }
+        _balloonPath = path;
+        // 路径可能超过气泡正文长度上限，截断展示，完整路径在日志中
+        string display = path.Length <= 120 ? path : path[..120] + "...";
+        _trayIcon.ShowBalloonTip(3000, "ClipImageToPath", $"图片已转换为路径：{display}", ToolTipIcon.Info);
+    }
+
+    /// <summary>
+    /// 气泡点击跳转：在资源管理器中定位最近转换的临时文件。
+    /// </summary>
+    private void OpenBalloonPath()
+    {
+        if (string.IsNullOrEmpty(_balloonPath) || !File.Exists(_balloonPath))
+        {
+            return;
+        }
+        try
+        {
+            // /select 参数让资源管理器直接定位并选中目标文件
+            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{_balloonPath}\"");
+        }
+        catch (Exception ex)
+        {
+            // 跳转失败仅记录日志，不影响主流程
+            Logger.Error($"打开临时文件位置失败：{ex.Message}");
+        }
+    }
 
     /// <summary>
     /// 端到端自检：写入测试图片 → 等待监听链路转成路径 → 校验临时文件存在。

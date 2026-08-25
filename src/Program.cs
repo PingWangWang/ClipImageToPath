@@ -55,6 +55,8 @@ internal static class Program
             monitor.ClipboardUpdated += service.OnClipboardUpdated;
 
             using var context = new TrayApplicationContext(monitor, selftest);
+            // [修改] 图片转换成功后由托盘弹气泡提示
+            service.PathConverted += context.OnPathConverted;
             Application.Run(context);
             return context.ExitCode;
         }

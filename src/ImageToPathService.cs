@@ -25,6 +25,9 @@ internal sealed class ImageToPathService : IDisposable
     private bool _disposed;
     private readonly Dictionary<string, DateTime> _recentFingerprints = new(); // 已生成路径的图片指纹 → 首次处理时间，用于进程内永久去重
 
+    /// <summary>图片成功转换为路径后触发，参数为临时 PNG 完整路径。</summary>
+    public event EventHandler<string>? PathConverted;
+
     /// <summary>
     /// 构造函数：初始化延迟回写定时器。
     /// </summary>
@@ -232,6 +235,8 @@ internal sealed class ImageToPathService : IDisposable
             SetTextWithRetry(path);
             Logger.Info($"图片已转为临时路径：{path}");
             _pendingPath = null;
+            // [修改] 转换成功后通知 UI 层弹气泡提示，UI 层自行判断开关状态
+            PathConverted?.Invoke(this, path);
         }
         catch (Exception ex)
         {
