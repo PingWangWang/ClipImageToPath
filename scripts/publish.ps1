@@ -18,6 +18,19 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# [修改] 交互式控制台（手动运行/双击）时暂停等待确认，避免窗口一闪而过看不到结果；
+#       输出被重定向（CI/管道）时自动跳过，避免自动化挂起
+function Confirm-Exit {
+    param(
+        [int]$Code = 0
+    )
+    if ([Environment]::UserInteractive -and -not [Console]::IsOutputRedirected) {
+        Write-Host ''
+        Read-Host '脚本执行完成，按回车键退出'
+    }
+    exit $Code
+}
+
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $ProjectFile = Join-Path $ProjectRoot 'src\ClipImageToPath.csproj'
 if ([string]::IsNullOrWhiteSpace($Output)) {
@@ -30,7 +43,7 @@ if ([string]::IsNullOrWhiteSpace($Version)) {
     $Version = (($project.Project.PropertyGroup | Where-Object { $_.Version }).Version | Select-Object -First 1)
     if ([string]::IsNullOrWhiteSpace($Version)) {
         Write-Host '错误：无法从 csproj 解析 Version，请在 csproj 中设置 <Version>' -ForegroundColor 'Red'
-        exit 1
+        Confirm-Exit 1
     }
 }
 
@@ -38,7 +51,7 @@ if ([string]::IsNullOrWhiteSpace($Version)) {
 $dotnetPath = Get-Command dotnet -ErrorAction SilentlyContinue
 if ($null -eq $dotnetPath) {
     Write-Host '错误：未找到 dotnet 命令，请先安装 .NET SDK 8.0+ 或运行 check-env.ps1' -ForegroundColor 'Red'
-    exit 1
+    Confirm-Exit 1
 }
 
 # 发布目录只保留本次产物，避免旧版本 exe 残留造成混淆
@@ -72,7 +85,7 @@ $plainExe = Join-Path $Output 'ClipImageToPath.exe'
 $versionedExe = Join-Path $Output ("ClipImageToPath_{0}.exe" -f $Version)
 if (-not (Test-Path -LiteralPath $plainExe)) {
     Write-Host ("发布产物缺失：{0}" -f $plainExe) -ForegroundColor 'Red'
-    exit 1
+    Confirm-Exit 1
 }
 $plainPdb = Join-Path $Output 'ClipImageToPath.pdb'
 if (Test-Path -LiteralPath $plainPdb) {
@@ -86,4 +99,4 @@ $fileInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($versionedExe)
 Write-Host ("发布成功：{0}（{1} MB）" -f $versionedExe, $sizeMB) -ForegroundColor 'Green'
 Write-Host ("文件属性版本：产品 {0} / 文件 {1}" -f $fileInfo.ProductVersion, $fileInfo.FileVersion) -ForegroundColor 'Green'
 Write-Host ("SHA256：{0}" -f $hash) -ForegroundColor 'Green'
-exit 0
+Confirm-Exit 0

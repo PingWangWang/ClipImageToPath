@@ -12,6 +12,19 @@ param(
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 
+# [修改] 交互式控制台（手动运行/双击）时暂停等待确认，避免窗口一闪而过看不到结果；
+#       输出被重定向（CI/管道）时自动跳过，避免自动化挂起
+function Confirm-Exit {
+    param(
+        [int]$Code = 0
+    )
+    if ([Environment]::UserInteractive -and -not [Console]::IsOutputRedirected) {
+        Write-Host ''
+        Read-Host '脚本执行完成，按回车键退出'
+    }
+    exit $Code
+}
+
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {
     $OutputPath = Join-Path $ProjectRoot 'src\Assets\app.ico'
@@ -130,4 +143,4 @@ New-IconFile -Master $master -Sizes @(16, 32, 48, 256) -Path $OutputPath
 $master.Dispose()
 $info = Get-Item -LiteralPath $OutputPath
 Write-Host ("图标已生成：{0}（{1} KB，16/32/48/256 尺寸）" -f $OutputPath, [math]::Round($info.Length / 1KB, 1)) -ForegroundColor 'Green'
-exit 0
+Confirm-Exit 0

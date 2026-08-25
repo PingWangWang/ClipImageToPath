@@ -11,6 +11,19 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# [修改] 交互式控制台（手动运行/双击）时暂停等待确认，避免窗口一闪而过看不到结果；
+#       输出被重定向（CI/管道）时自动跳过，避免自动化挂起
+function Confirm-Exit {
+    param(
+        [int]$Code = 0
+    )
+    if ([Environment]::UserInteractive -and -not [Console]::IsOutputRedirected) {
+        Write-Host ''
+        Read-Host '脚本执行完成，按回车键退出'
+    }
+    exit $Code
+}
+
 # 项目根目录：脚本固定位于 <项目根>/scripts
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $ProjectFile = Join-Path $ProjectRoot 'src\ClipImageToPath.csproj'
@@ -107,9 +120,9 @@ if ($CheckNetwork) {
 Write-Host ''
 if ($failCount -eq 0) {
     Write-Host '环境检查通过：可以执行 build.ps1 与 publish.ps1' -ForegroundColor 'Green'
-    exit 0
+    Confirm-Exit 0
 }
 else {
     Write-Host ("环境检查未通过：{0} 项不满足" -f $failCount) -ForegroundColor 'Red'
-    exit 1
+    Confirm-Exit 1
 }
