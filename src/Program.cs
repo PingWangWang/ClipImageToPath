@@ -53,8 +53,13 @@ internal static class Program
             // [修改] 延迟回写期间持有定时器，using 保证消息泵退出后资源释放
             using var service = new ImageToPathService();
             monitor.ClipboardUpdated += service.OnClipboardUpdated;
+            // 自检模式需确保功能开启，端到端验证才有效（默认即开启，此处显式兜底）
+            if (selftest)
+            {
+                service.SetEnabled(true);
+            }
 
-            using var context = new TrayApplicationContext(monitor, selftest);
+            using var context = new TrayApplicationContext(monitor, service, selftest);
             // [修改] 图片转换成功后由托盘弹气泡提示
             service.PathConverted += context.OnPathConverted;
             Application.Run(context);

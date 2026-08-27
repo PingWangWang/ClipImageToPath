@@ -21,8 +21,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private const string AutoStartValueName = "ClipImageToPath";
     private const string SettingsKeyPath = @"Software\ClipImageToPath";
     private const string ShowBalloonValueName = "ShowBalloonTip";
+    private const string FeatureEnabledValueName = "FeatureEnabled";
 
     private readonly ClipboardMonitor _monitor;
+    private readonly ImageToPathService _service;
     private readonly bool _selftest;
     private NotifyIcon? _trayIcon;
     private System.Windows.Forms.Timer? _selfTestTimer;
@@ -39,9 +41,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
     ///     monitor: 剪贴板监听器，负责在退出时反注册系统钩子
     ///     selftest: true 时进入自检流程，不显示托盘
     /// </summary>
-    public TrayApplicationContext(ClipboardMonitor monitor, bool selftest)
+    public TrayApplicationContext(ClipboardMonitor monitor, ImageToPathService service, bool selftest)
     {
         _monitor = monitor;
+        _service = service;
         _selftest = selftest;
         // 依赖事件而非重写虚方法：退出消息泵时同步释放托盘与剪贴板监听
         ThreadExit += (_, _) => Cleanup();
@@ -66,6 +69,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void CreateTrayIcon()
     {
         var menu = new ContextMenuStrip();
+        // 新增功能总开关：控制是否将剪贴板图片转为路径，沿用 CheckOnClick + 注册表模式
+        var featureItem = new ToolStripMenuItem("图片转路径")
+        {
+            CheckOnClick = true, // 点击时自动切换勾选，处理器按新状态写注册表并通知服务
+            Checked = IsFeatureEnabled(),
+        };
+        featureItem.Click += (_, _) => ToggleFeature(featureItem);
         // [修改] 开机自启默认勾选：首次运行自动写入 Run 键并勾选菜单，用户可随时取消
         var autoStartItem = new ToolStripMenuItem("开机自启")
         {
@@ -82,6 +92,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         balloonItem.Click += (_, _) => ToggleBalloon(balloonItem);
         var exitItem = new ToolStripMenuItem("退出");
         exitItem.Click += (_, _) => ExitThread();
+        menu.Items.Add(featureItem);
         menu.Items.Add(autoStartItem);
         menu.Items.Add(balloonItem);
         menu.Items.Add(new ToolStripSeparator());
@@ -228,6 +239,55 @@ internal sealed class TrayApplicationContext : ApplicationContext
             // 注册表写入失败时回滚勾选并明确提示，避免菜单状态与实际不一致
             item.Checked = !item.Checked;
             MessageBox.Show($"设置消息提示失败：{ex.Message}", "ClipImageToPath", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    /// <summary>
+    /// 读取功能总开关状态，未配置时默认开启（保留老用户行为）。
+    /// 返回:
+    ///     bool，是否启用图片转路径功能
+    /// </summary>
+    private static bool IsFeatureEnabled()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(SettingsKeyPath);
+            object? raw = key?.GetValue(FeatureEnabledValueName);
+            return raw is int value ? value != 0 : true;
+        }
+        catch
+        {
+            // 读注册表失败按默认开启处理，避免托盘菜单因异常无法显示
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// 切换功能总开关并写入注册表，同步通知服务启停；关闭时更新托盘提示文案。
+    /// 参数:
+    ///     item: 触发点击的菜单项，其 Checked 已由 CheckOnClick 切换
+    /// </summary>
+    private void ToggleFeature(ToolStripMenuItem item)
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.CreateSubKey(SettingsKeyPath, writable: true);
+            key.SetValue(FeatureEnabledValueName, item.Checked ? 1 : 0, RegistryValueKind.DWord);
+            // 通知服务启停；关闭时服务内部会取消挂起的延迟回写并清理临时文件
+            _service.SetEnabled(item.Checked);
+            // 关闭时更新托盘提示，给用户即时反馈当前为停用状态
+            if (_trayIcon != null)
+            {
+                _trayIcon.Text = item.Checked
+                    ? "ClipImageToPath - 剪贴板图片自动转为路径"
+                    : "ClipImageToPath - 功能已停用";
+            }
+        }
+        catch (Exception ex)
+        {
+            // 注册表写入失败时回滚勾选并明确提示，避免菜单状态与实际不一致
+            item.Checked = !item.Checked;
+            MessageBox.Show($"设置功能开关失败：{ex.Message}", "ClipImageToPath", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 

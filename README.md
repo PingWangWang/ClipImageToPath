@@ -31,19 +31,23 @@ scripts\publish.ps1 -Version 1.1.0 # 指定版本发布（默认取 csproj 的 <
 
 ## 版本管理
 
-- 版本号唯一来源是 [src/ClipImageToPath.csproj](src/ClipImageToPath.csproj) 中的 `<Version>`（当前 `1.0.0`）。
+- 版本号唯一来源是 [src/ClipImageToPath.csproj](src/ClipImageToPath.csproj) 中的 `<Version>`（当前 `1.0.5`）。
 - 发布时 `publish.ps1` 默认读取该版本号，也可用 `-Version` 覆盖。
-- 版本号同步生效三处：exe 文件名（`ClipImageToPath_1.0.0.exe`）、exe 文件属性（右键 → 详细信息）、程序内信息（命令行 `--version` 输出）。
+- 版本号同步生效三处：exe 文件名（`ClipImageToPath_1.0.5.exe`）、exe 文件属性（右键 → 详细信息）、程序内信息（命令行 `--version` 输出）。
 
 ## 使用
 
-双击 `artifacts\publish\ClipImageToPath_1.0.0.exe` 即常驻托盘。复制任意图片后，剪贴板会被替换为临时图片文件的完整路径，粘贴即得路径。托盘右键菜单可勾选"开机自启"（写入当前用户注册表 Run 键，记录的是实际运行路径，文件名带版本不影响），或点"退出"结束程序。
+双击 `artifacts\publish\ClipImageToPath_1.0.5.exe` 即常驻托盘。复制任意图片后，剪贴板会被替换为临时图片文件的完整路径，粘贴即得路径。托盘右键菜单包含：
+- **图片转路径**（默认勾选）：功能总开关，取消勾选后程序仍常驻托盘但不再把剪贴板图片转为路径，状态持久化到注册表。
+- **开机自启**（默认勾选）：写入当前用户注册表 Run 键（记录实际运行路径，文件名带版本不影响）。
+- **消息提示**（默认勾选）：控制图片转换成功后的气泡提示。
+- **退出**：结束程序。
 
 命令行用法：
 
 ```powershell
-ClipImageToPath_1.0.0.exe --version   # 输出版本号
-ClipImageToPath_1.0.0.exe --selftest  # 端到端自检，退出码 0 为通过
+ClipImageToPath_1.0.5.exe --version   # 输出版本号
+ClipImageToPath_1.0.5.exe --selftest  # 端到端自检，退出码 0 为通过
 ```
 
 日志位置：`%TEMP%\ClipImageToPath\clip.log`。

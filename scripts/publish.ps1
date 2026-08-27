@@ -80,7 +80,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# 将 exe 重命名为带版本号的文件名（如 ClipImageToPath_1.0.0.exe）
+# 将 exe 重命名为带版本号的文件名（如 ClipImageToPath_1.0.5.exe）
 $plainExe = Join-Path $Output 'ClipImageToPath.exe'
 $versionedExe = Join-Path $Output ("ClipImageToPath_{0}.exe" -f $Version)
 if (-not (Test-Path -LiteralPath $plainExe)) {

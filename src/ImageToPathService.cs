@@ -28,6 +28,24 @@ internal sealed class ImageToPathService : IDisposable
     /// <summary>图片成功转换为路径后触发，参数为临时 PNG 完整路径。</summary>
     public event EventHandler<string>? PathConverted;
 
+    /// <summary>功能总开关：false 时停止将剪贴板图片转为路径（仅短回路，监听仍运行）。默认开启。</summary>
+    public bool Enabled { get; private set; } = true;
+
+    /// <summary>
+    /// 设置功能总开关；关闭时取消挂起的延迟回写并清理临时文件，保持剪贴板图片状态。
+    /// 参数:
+    ///     enabled: 是否启用图片转路径功能
+    /// </summary>
+    public void SetEnabled(bool enabled)
+    {
+        Enabled = enabled;
+        if (!enabled)
+        {
+            // 关闭瞬间若有待回写的延迟任务，立即作废并清理临时文件，避免关闭后仍写出路径
+            CancelPendingWrite();
+        }
+    }
+
     /// <summary>
     /// 构造函数：初始化延迟回写定时器。
     /// </summary>
@@ -61,6 +79,11 @@ internal sealed class ImageToPathService : IDisposable
     /// </summary>
     public void OnClipboardUpdated(object? sender, EventArgs e)
     {
+        // 功能关闭时直接短路，既不转换也不产生副作用
+        if (!Enabled)
+        {
+            return;
+        }
         try
         {
             HandleClipboardUpdate();
